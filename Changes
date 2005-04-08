@@ -1,6 +1,10 @@
 Revision history for Perl extension SVG::Template::Graph.
 
-0.00_01  Sun Sep 26 17:02:58 2004
+0.04  Sat Apr 08 01:06:00 2005
+	- Implemented drawAxis for drawing zero-value points
+	- Some documentation updates
+	- Added example 05-axes.pl to show the usage of drawAxis
+0.03  Sun Sep 26 17:02:58 2004
 	- original version; created by h2xs 1.23 with options
 		-B -X -c -e -k -n SVG::Template::Graph
 

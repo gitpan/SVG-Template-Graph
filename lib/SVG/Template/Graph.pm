@@ -8,11 +8,10 @@ use SVG::Parser;
 use Exporter;
 use Transform::Canvas;
 
-use Data::Dumper #get rid of this on rollout
-our $VERSION = '0.03';
+use Data::Dumper    #get rid of this on rollout
+  our $VERSION = '0.04';
 
-use vars qw($VERSION @ISA ); #$AUTOLOAD);
-#use AutoLoader qw(AUTOLOAD);
+use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
 our @ISA = qw(SVG::Parser Exporter );
 
@@ -25,7 +24,7 @@ SVG::Template::Graph - Perl extension for generating template-driven graphs with
  use SVG::Template::Graph;
  $data = [
 		{ 
-		barGraph=>1,
+		barGraph=>1,#<barGraph|[lineGraph]>
 	  	barSpace=>20,
         	'title'=> '1: Trace 1',
         	'data' => #hash ref containing x-val and y-val array refs
@@ -45,6 +44,8 @@ SVG::Template::Graph - Perl extension for generating template-driven graphs with
 			'x_max' =>      600, 
 			'y_min' =>      50,
 			'y_max' =>      200,
+			'x_axis' => 1, #draw x-axis
+			'y_axis' => 1, #draw y-axis
  
                 	#define the labels that provide the data context.
 	        	'labels' =>
@@ -108,31 +109,31 @@ Refer to the examples directory inside this distribution for working examples.
 
 #our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-#our @EXPORT = qw( 
+#our @EXPORT = qw(
 #);
 
+$VERSION = eval $VERSION;    # see L<perlmodstyle>
 
-$VERSION = eval $VERSION;  # see L<perlmodstyle>
+sub new ($;$;@) {
+    my ( $proto, $file, %attrs ) = @_;
+    my $class = ref $proto || $proto;
+    my $self;
+    my %default_attributes = %SUPER::default_attributes;
 
-sub new ($;@) {
-	my ($proto,@attrs)=@_;
-	my $class=ref $proto || $proto;
-	my $self;
-   	my %default_attributes = %SUPER::default_attributes; 
+    $self->{_config_}  = {};
+    $self->{_svgTree_} = {};
 
-	$self->{_config_} = {};
-	$self->{_svgTree_} = {};
-			
-	# establish defaults for unspecified attributes
-	$self = $class->SUPER::new();
-	$self->{_svgTree_} = $self->parsefile(shift @attrs);
-	return $self;
+    # establish defaults for unspecified attributes
+    $self              = $class->SUPER::new();
+    $self->{_svgTree_} = $self->parsefile($file);
+    $self->{_idmap_}   = {};
+    return $self;
 }
 
 sub burn ($;@) {
 
-        my ($self,%attrs) = @_;
-        return $self->D()->xmlify(%attrs);
+    my ( $self, %attrs ) = @_;
+    return $self->D()->xmlify(%attrs);
 }
 
 =head2 $text_ref = setGraphTitle($string|\@strings, %attributes)
@@ -142,10 +143,10 @@ Returns the reference to the text element
 
 =cut
 
-sub setGraphTitle ($$;@) { 
-	my $self = shift;
-	my $text = shift;
-	return $self->_setAxisText("group.graph.title",$text,@_);
+sub setGraphTitle ($$;@) {
+    my $self = shift;
+    my $text = shift;
+    return $self->_setAxisText( "group.graph.title", $text, @_ );
 }
 
 =head2 setTraceTitle( $string|\@strings, %attributes )
@@ -154,11 +155,11 @@ set the title of a trace
 
 =cut
 
-sub setTraceTitle ($$$;@) { 
-	my $self = shift;
-	my $ti = shift;
-	my $text = shift;
-	return $self->_setAxisText("group.trace.title.$ti",$text,@_);
+sub setTraceTitle ($$$;@) {
+    my $self = shift;
+    my $ti   = shift;
+    my $text = shift;
+    return $self->_setAxisText( "group.trace.title.$ti", $text, @_ );
 }
 
 =head2 $text_ref = setXAxisTitle($axis_number, $string|\@strings,%attributes)
@@ -168,12 +169,13 @@ Returns the reference to the text element
 
 =cut
 
-sub setXAxisTitle ($$$;@) { 
-	my $self = shift;
-	#the trace index
-	my $ti = shift;
-	my $text = shift;
-	return $self->_setAxisText("group.trace.axes.title.x.$ti",$text,@_);
+sub setXAxisTitle ($$$;@) {
+    my $self = shift;
+
+    #the trace index
+    my $ti   = shift;
+    my $text = shift;
+    return $self->_setAxisText( "group.trace.axes.title.x.$ti", $text, @_ );
 }
 
 =head2 $text_ref = setYAxisTitle($axis_number, $string|\@strings,%attributes)
@@ -183,12 +185,13 @@ Returns the reference to the text element
 
 =cut
 
-sub setYAxisTitle ($$$;@) { 
-	my $self = shift;
-	#the trace index
-	my $ti = shift;
-	my $text = shift;
-	return $self->_setAxisText("group.trace.axes.title.y.$ti",$text,@_);
+sub setYAxisTitle ($$$;@) {
+    my $self = shift;
+
+    #the trace index
+    my $ti   = shift;
+    my $text = shift;
+    return $self->_setAxisText( "group.trace.axes.title.y.$ti", $text, @_ );
 }
 
 =head2 _setAxisText ($id,$text|\@text,%attributes)
@@ -198,30 +201,36 @@ Internal method called by setGraphTitle and setAxisTitle to do the actual work
 =cut
 
 sub _setAxisText ($$$;@) {
-	my $self = shift;
-	my $id = shift;
-	my $text = shift;
-	my %attrs;
-	%attrs = @_;
+    my $self = shift;
+    my $id   = shift;
+    my $text = shift;
+    my %attrs;
+    %attrs = @_;
 
-	#check if we have an array of strings
-	$text = [$text] unless (ref($text) eq 'ARRAY');
-	
-	carp("No text was supplied. Either supply a string or an array reference containing strings") 
-		unless scalar @$text;
-	my $d = $self->D() || confess("Supplied SVG input  not properly parsed!!");	
-	my $tg = $d->getElementByID($id);
-	confess("Group '$id' not found in document when setting a text field.$!") unless $tg;
-	my $to = $tg->text(%attrs)
-		|| carp("Failed to generate an Axis text element within group '$id'.");
-	my %args = (x=>0);
-	foreach my $line (@$text) {
-		$to->tspan(%args)->cdata($line)
-			|| carp("Failed to generate an Axis tspan element within group '$id'.");
-		#set the dy spacing for multi-line text
-		$args{dy} = '1em';
-	}
-	return $to;
+    #check if we have an array of strings
+    $text = [$text] unless ( ref($text) eq 'ARRAY' );
+
+    carp(
+"No text was supplied. Either supply a string or an array reference containing strings"
+      )
+      unless scalar @$text;
+    my $d = $self->D() || confess("Supplied SVG input  not properly parsed!!");
+    my $tg = $d->getElementByID($id);
+    confess("Group '$id' not found in document when setting a text field.$!")
+      unless $tg;
+    my $to = $tg->text(%attrs)
+      || carp("Failed to generate an Axis text element within group '$id'.");
+    my %args = ( x => 0 );
+
+    foreach my $line (@$text) {
+        $to->tspan(%args)->cdata($line)
+          || carp(
+            "Failed to generate an Axis tspan element within group '$id'.");
+
+        #set the dy spacing for multi-line text
+        $args{dy} = '1em';
+    }
+    return $to;
 }
 
 =head2 struct $struct 
@@ -300,41 +309,40 @@ Action: set the boundary box data in the object and returns the array reference:
 
 sub getCanvasBoxBoundaries ($;$) {
 
-	my $self = shift;
-	my $id  = shift || 'rectangle.graph.data.space';
+    my $self = shift;
+    my $id   = shift || 'rectangle.graph.data.space';
 
-	unless (defined $self->{_config_}->{xmin_p}) {
+    unless ( defined $self->{_config_}->{xmin_p} ) {
 
-		if (ref($id) eq 'ARRAY') {
-			( $self->{_config_}->{xmin_p},
-			$self->{_config_}->{ymin_p},
-			$self->{_config_}->{xmax_p},
-			$self->{_config_}->{ymax_p} ) = @$id;
-		} elsif (ref($id) eq 'HASH') {
-			croak('getCanvasBoxBoundaries does not yet support hashes');
+        if ( ref($id) eq 'ARRAY' ) {
+            (
+                $self->{_config_}->{xmin_p}, $self->{_config_}->{ymin_p},
+                $self->{_config_}->{xmax_p}, $self->{_config_}->{ymax_p}
+              )
+              = @$id;
+        } elsif ( ref($id) eq 'HASH' ) {
+            croak('getCanvasBoxBoundaries does not yet support hashes');
 
-		} else {
-			my $r = $self->D()->getElementByID($id) 
-			|| croak ("Could not find rectangle with id='$id'");
-		
-		#define the configuration data for the paperspace.
-			$self->{_config_}->{xmin_p} = $r->getAttribute('x'); 
-			$self->{_config_}->{xmax_p} = 
-				$self->{_config_}->{xmin_p} + $r->getAttribute('width'); 
-			$self->{_config_}->{ymin_p} = $r->getAttribute('y'); 
-			$self->{_config_}->{ymax_p} =
-				$self->{_config_}->{ymin_p} + $r->getAttribute('height'); 
-		}
+        } else {
+            my $r = $self->D()->getElementByID($id)
+              || croak("Could not find rectangle with id='$id'");
 
-	}
+            #define the configuration data for the paperspace.
+            $self->{_config_}->{xmin_p} = $r->getAttribute('x');
+            $self->{_config_}->{xmax_p} =
+              $self->{_config_}->{xmin_p} + $r->getAttribute('width');
+            $self->{_config_}->{ymin_p} = $r->getAttribute('y');
+            $self->{_config_}->{ymax_p} =
+              $self->{_config_}->{ymin_p} + $r->getAttribute('height');
+        }
 
-	#return the reference to the array as expected by Transform::Canvas
-	return [
-		$self->{_config_}->{xmin_p},
-		$self->{_config_}->{ymin_p},
-		$self->{_config_}->{xmax_p},
-		$self->{_config_}->{ymax_p},
-		];
+    }
+
+    #return the reference to the array as expected by Transform::Canvas
+    return [
+        $self->{_config_}->{xmin_p}, $self->{_config_}->{ymin_p},
+        $self->{_config_}->{xmax_p}, $self->{_config_}->{ymax_p},
+    ];
 }
 
 =head2 getDataBoxBoundaries (\%struct)
@@ -348,16 +356,56 @@ as an array reference:
 
 sub getDataBoxBoundaries ($$) {
 
-	my $self = shift;
-	my $p = shift;
+    my $self = shift;
+    my $p    = shift;
 
-	my $out = [
-		$p->{format}->{x_min},
-		$p->{format}->{y_min},
-		$p->{format}->{x_max},
-		$p->{format}->{y_max},
-		];
+    return [
+        $p->{format}->{x_min}, $p->{format}->{y_min},
+        $p->{format}->{x_max}, $p->{format}->{y_max},
+    ];
 
+}
+
+=head2 drawAxis(<target_group_id>,[x|y|undef]))
+
+draw one or both of axes (zero-value line) of the drawing data space. Draws both axes unless one of the axes is passed as a string.
+
+ drawAxis('somegroupid','x') draws the x-axis line into group 'somegroupid'.
+ drawAxis('somegroupid','y') draws the y-axis line indo group 'somegroupid'
+ drawAxis('somegroupid') draws both x- and y- axis lines into group 'somegroupid'
+
+construction detail: draws the content into a group.
+
+=cut
+
+sub drawAxis ($$$) {
+    my $self = shift;
+    my $id   = shift;         #anchor id
+    my $o    = shift || '';
+    my $g;
+    if ( !$o || ( $o eq 'x' || $o eq 'y' ) ) {
+        $g = $self->D->getElementByID($id);
+
+        #draw the x-axis if it appears in the canvas window
+        $g->line(
+            id => "x axis zero line",
+            x1 => $self->T->mapX(0),
+            y1 => $self->T->mapY( $self->T->dy0 ),
+            x2 => $self->T->mapX(0),
+            y2 => $self->T->mapY( $self->T->dy1 ),
+          )
+          if $o eq 'x';
+        $g->line(
+            id => "y axis zero line",
+            x1 => $self->T->mapX( $self->T->dx0 ),
+            y1 => $self->T->mapY(0),
+            x2 => $self->T->mapX( $self->T->dx1 ),
+            y2 => $self->T->mapY(0),
+          )
+          if $o eq 'y';
+        return $g;
+    }
+    return undef;
 }
 
 =head2 drawTraces ($data_structure,$insertion_anchor_id)
@@ -370,32 +418,31 @@ The format for the array is: [x0 y0 x1 y1]. in canvas dimension
 
 =cut
 
-
 sub drawTraces ($$) {
-	my $self = shift;
-	my $struct= shift;
-	my $insert_anchor_id = shift;
-	
-	#make sure we got an array ref for $struct
-	croak("drawTrace error: expected an array at drawTraces but got something called '".
-		ref ($struct). 
-		"' with content $struct.")
-		unless ref($struct) eq 'ARRAY';
+    my $self             = shift;
+    my $struct           = shift;
+    my $insert_anchor_id = shift;
 
+    #make sure we got an array ref for $struct
+    croak(
+"drawTrace error: expected an array at drawTraces but got something called '"
+          . ref($struct)
+          . "' with content $struct." )
+      unless ref($struct) eq 'ARRAY';
 
-	#take the hash struct for each trace and run it through the grinder.
-	#past this point, the code goes to hell as of 2004.09.21.
-	#but this is the way to go...
+    #take the hash struct for each trace and run it through the grinder.
+    #past this point, the code goes to hell as of 2004.09.21.
+    #but this is the way to go...
 
-	my $ti = 0;
-	foreach my $trace (@$struct) {
-		$ti++;
-		$self->getTracePointMap($ti,'path',$trace,$insert_anchor_id) || croak ("Failed to build trace $ti");
-	}
+    my $ti = 0;
+    foreach my $trace (@$struct) {
+        $ti++;
+        $self->getTracePointMap( $ti, 'path', $trace, $insert_anchor_id )
+          || croak("Failed to build trace $ti");
+    }
 
-	return $ti;
+    return $ti;
 }
-
 
 =head2 getTracePointMap $index, polyline|[path]|polygon, $p, $anchor_data, %args
 
@@ -412,44 +459,63 @@ returns the reference of the polyline/path/polygon tag that was generated.
 =cut
 
 sub getTracePointMap ($$$$;@) {
-	my $self = shift;
-	my $ti = shift;
-	my $type = shift;
-	my $p = shift;
-	my $insert_anchor = shift;
-	my %args = @_;
+    my $self          = shift;
+    my $ti            = shift;
+    my $type          = shift;
+    my $p             = shift;
+    my $insert_anchor = shift;
+    my %args          = @_;
 
-	my $canvas = $self->getCanvasBoxBoundaries($insert_anchor);	
-	$self->{map} = Transform::Canvas->new(
-		#the canvas extents limits
-		canvas=>$canvas,
-		#the data scape mapping to the above canvas geometry
-		data=>$self->getDataBoxBoundaries($p),
-		);
+    my $canvas = $self->getCanvasBoxBoundaries($insert_anchor);
 
+    #assign a default line drawing type
+    $p->{lineGraph} = 1 unless $p->{barGraph};
+    $self->{map}    = Transform::Canvas->new(
 
- 	confess("Failed to create Canvas Transform object")
-		unless ref($self->{map}) eq 'Transform::Canvas';
-	my @pr = $self->{map}->map($p->{data}->{x_val},$p->{data}->{y_val});
+        #the canvas extents limits
+        canvas => $canvas,
 
-	#draw the gridlines
-	$self->drawGridLines($ti,$p->{format}) || warn("Error building the gridlines");
+        #the data scape mapping to the above canvas geometry
+        data => $self->getDataBoxBoundaries($p),
+    );
 
-	$self->lineGraph($ti,$type,\@pr,$canvas,%args) if $p->{lineGraph};
+    confess("Failed to create Canvas Transform object")
+      unless ref( $self->{map} ) eq 'Transform::Canvas';
+    my @pr = $self->{map}->map( $p->{data}->{x_val}, $p->{data}->{y_val} );
 
-	delete $args{closed} if $args{closed};
+    #draw the gridlines
+    $self->drawGridLines( $ti, $p->{format} )
+      || warn("Error building the gridlines");
 
-	if ($p->{barGraph}) {
-		$p->{data}->{x_val} = ref $p->{data}->{x_val} ? $p->{data}->{x_val} : [$p->{data}->{x_val}];
-		$p->{data}->{y_val} = ref $p->{data}->{y_val} ? $p->{data}->{y_val} : [$p->{data}->{y_val}];
-		$self->barGraph($ti,[$p->{data}->{x_val},$p->{data}->{y_val}],$p->{barSpace},%args);
-	}
+    $self->lineGraph( $ti, $type, \@pr, $canvas, %args ) if $p->{lineGraph};
 
-	#set the trace titles if they are specified
-	$self->setXAxisTitle($ti,$p->{format}->{x_title}) if defined $p->{format}->{x_title};
-	$self->setYAxisTitle($ti,$p->{format}->{y_title}) if defined $p->{format}->{y_title};
-	$self->setTraceTitle($ti,$p->{title}) if defined $p->{title};
-	return 1;
+    delete $args{closed} if $args{closed};
+
+    if ( $p->{barGraph} ) {
+        $p->{data}->{x_val} =
+          ref $p->{data}->{x_val}
+          ? $p->{data}->{x_val}
+          : [ $p->{data}->{x_val} ];
+        $p->{data}->{y_val} =
+          ref $p->{data}->{y_val}
+          ? $p->{data}->{y_val}
+          : [ $p->{data}->{y_val} ];
+        $self->barGraph( $ti, [ $p->{data}->{x_val}, $p->{data}->{y_val} ],
+            $p->{barSpace}, %args );
+    }
+
+    $self->drawAxis( "group.trace.axes.x.$ti", 'x' )
+      if $p->{format}->{x_axis};
+    $self->drawAxis( "group.trace.axes.y.$ti", 'y' )
+      if $p->{format}->{y_axis};
+
+    #set the trace titles if they are specified
+    $self->setXAxisTitle( $ti, $p->{format}->{x_title} )
+      if defined $p->{format}->{x_title};
+    $self->setYAxisTitle( $ti, $p->{format}->{y_title} )
+      if defined $p->{format}->{y_title};
+    $self->setTraceTitle( $ti, $p->{title} ) if defined $p->{title};
+    return 1;
 }
 
 =head2 lineGraph index, type, [\@x,\@y], $canvas, %styling_attributes
@@ -460,32 +526,37 @@ draw a line graph trace
 
 #draw the line graph
 sub lineGraph ($$$$@) {
-	my $self = shift;
-	my $ti= shift;
-	my $type = shift;
-	my $points = shift;
-	my $canvas = shift;
-	my %args = @_;
-	
-	$type = 'path' unless ($type eq 'polyline' || $type eq 'polygon');
-        my %closed = ();
-	%closed  = ( '-closed' => 'true') if (lc($args{closed}) eq 'true');
-	
-	delete $args{closed} if $args{closed};
-	#draw the trace in the container
-	my $c_points = $self->D()
-		->get_path(x=>$points->[0],y=>$points->[1],-type=>$type, %closed,);
-			
+    my $self   = shift;
+    my $ti     = shift;
+    my $type   = shift;
+    my $points = shift;
+    my $canvas = shift;
+    my %args   = @_;
+    print STDERR "Generating a line graph for trace $ti" if $main::DEBUG;
 
-	#invoke the transformation from data space to canvas space
-	my ($min_x,$min_y,$max_x,$max_y) = @$canvas;
-	my $traceBase = $self->D()
-		->getElementByID("group.trace.data.$ti") 
-			|| confess( "Failed to find required element 
-					id group.trace.data.$ti");
-	return $traceBase->
-		$type(%$c_points, id=>"trace.$ti", %args);
+    $type = 'path' unless ( $type eq 'polyline' || $type eq 'polygon' );
+    my %closed = ();
+    %closed = ( '-closed' => 'true' ) if ( lc( $args{closed} ) eq 'true' );
 
+    delete $args{closed} if $args{closed};
+
+    #draw the trace in the container
+    my $c_points = $self->D()->get_path(
+        x     => $points->[0],
+        y     => $points->[1],
+        -type => $type,
+        %closed,
+    );
+
+    #invoke the transformation from data space to canvas space
+    my ( $min_x, $min_y, $max_x, $max_y ) = @$canvas;
+    my $id_string = "group.trace.data.$ti";
+    my $traceBase = $self->D()->getElementByID($id_string)
+      || confess(
+        "Failed to find required element 
+					id '$id_string'"
+      );
+    return $traceBase->$type( %$c_points, id => "trace.$ti", %args );
 }
 
 #draw the bar graph
@@ -497,58 +568,66 @@ draw a bar graph trace
 =cut
 
 sub barGraph ($$$$@) {
-	my $self = shift;
-	my $ti= shift;
-	#the raw points.
-	my $points = shift;
-	my $barSpace = shift;
-	my %args = @_;
-	
-	my $out = $self->getCanvasBoxBoundaries;
+    my $self = shift;
+    my $ti   = shift;
 
-	my ($min_x,$min_y,$max_x,$max_y) = @$out;
-	
-	my $Points = scalar @{$points->[0]};
-	
-	my $traceBase = $self->D()
-		->getElementByID("group.trace.data.$ti") 
-			|| confess( "Failed to find required element 
-					id group.trace.data.$ti");
-	#we do a simple width linerization which falls down
-	#when the bars do not span the image.
-	$barSpace = $barSpace?$barSpace:$Points+1;
-	my $width = ($max_x - $min_x)/$barSpace;
-	#draw a rectangle for each point, with the 
-	#rectangle centered on the point at the X midpoint
-	#of the rectangle.
-	#
-	#watch out for paper space inversion tricks.
-	#min_y is the bottom of the drawing (max_canvas_value)
-	#we are working in paper space
-	foreach my $index (0..$Points - 1 ) {
+    #the raw points.
+    my $points   = shift;
+    my $barSpace = shift;
+    my %args     = @_;
 
-		my $x = $self->T->mapX($points->[0]->[$index])-0.5 * $width;
-		#my $y = $self->T->mapY($points->[1]->[$index]);
-		my $y = $self->T->mapY(0);
-		
-		my $height = $self->T->mapY($points->[1]->[$index])-$self->T()->mapY(0);
+    my $out = $self->getCanvasBoxBoundaries;
 
-		#handle negative rectangle height
-		if ($height < 0) {
-			$height = -$height;
-			$y = $y-$height;
-		}
-		$traceBase->rect(x=>$x,
-				y=> $y,
-				width=>$width,
-				height=>$height,%args );
-		
-		#this is the correct top position
-		#zeros position. do not mess with this!!
+    my ( $min_x, $min_y, $max_x, $max_y ) = @$out;
 
-	}
+    my $Points = scalar @{ $points->[0] };
+
+    my $traceBase = $self->D()->getElementByID("group.trace.data.$ti")
+      || confess(
+        "Failed to find required element 
+					id group.trace.data.$ti"
+      );
+
+    #we do a simple width linerization which falls down
+    #when the bars do not span the image.
+    $barSpace = $barSpace ? $barSpace : $Points + 1;
+    my $width = ( $max_x - $min_x ) / $barSpace;
+
+    #draw a rectangle for each point, with the
+    #rectangle centered on the point at the X midpoint
+    #of the rectangle.
+    #
+    #watch out for paper space inversion tricks.
+    #min_y is the bottom of the drawing (max_canvas_value)
+    #we are working in paper space
+    foreach my $index ( 0 .. $Points - 1 ) {
+
+        my $x = $self->T->mapX( $points->[0]->[$index] ) - 0.5 * $width;
+
+        #my $y = $self->T->mapY($points->[1]->[$index]);
+        my $y = $self->T->mapY(0);
+
+        my $height =
+          $self->T->mapY( $points->[1]->[$index] ) - $self->T->mapY(0);
+
+        #handle negative rectangle height
+        if ( $height < 0 ) {
+            $height = -$height;
+            $y      = $y - $height;
+        }
+        $traceBase->rect(
+            x      => $x,
+            y      => $y,
+            width  => $width,
+            height => $height,
+            %args
+        );
+
+        #this is the correct top position
+        #zeros position. do not mess with this!!
+
+    }
 }
-
 
 =head2 drawGridLines ($target_svg_element_ref,$transformation_ref,$format_structure_ref)
 
@@ -557,62 +636,65 @@ draw the gridlines for a graph as defined in the formatting data structure for e
 =cut
 
 sub drawGridLines ($$$) {
-	my $self = shift;
-	my $ti = shift;
-	my $f = shift; #formatting data structure ($in->{format})
-	
-	my $gid = undef;
-	$gid = "group.trace.axes.x.$ti";
-	my $g_x = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
-	$gid = "group.trace.axes.y.$ti";
-	my $g_y = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
-	
-	$gid = "group.trace.axes.values.x.$ti";
-	my $t_x = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
-	$gid = "group.trace.axes.values.y.$ti";
-	my $t_y = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
+    my $self = shift;
+    my $ti   = shift;
+    my $f    = shift;    #formatting data structure ($in->{format})
 
-	$gid = "group.trace.tick.$ti";
-	my $tk_y = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
-	
-	my $tk_x = $self->D()
-		->getElementByID($gid) 
-			|| confess("Failed to find required element ID '$gid'");
-	
-	croak("Format not correctly passed to drawGrid: not a hash reference") unless ref($f) eq 'HASH';
-	#
-	#handle labels if we have a gridlines label
-	if (defined $f->{labels}) {
+    my $gid = undef;
+    $gid = "group.trace.axes.x.$ti";
+    my $g_x = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
+    $gid = "group.trace.axes.y.$ti";
+    my $g_y = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
 
-		#Grid positions
-		$self->{grid}->{y_p} = $f->{labels}->{y_ticks}->{position} || [];
-		$self->{grid}->{x_p} = $f->{labels}->{x_ticks}->{position} || [];
-		#grid label units
-		$self->{grid}->{x_u} = $f->{labels}->{x_ticks}->{unit} || '';
-		$self->{grid}->{y_u} = $f->{labels}->{y_ticks}->{unit} || '';
-		#grid axes labels
-		$self->{grid}->{y_l} = $f->{labels}->{y_ticks}->{label} || [];
-		$self->{grid}->{x_l} = $f->{labels}->{x_ticks}->{label} || [];
-		#grid count
-		$self->{grid}->{y_c} = scalar @{$self->{grid}->{y_p}} || 0;
-		$self->{grid}->{x_c} = scalar @{$self->{grid}->{x_p}} || 0;
+    $gid = "group.trace.axes.values.x.$ti";
+    my $t_x = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
+    $gid = "group.trace.axes.values.y.$ti";
+    my $t_y = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
 
-		$self->handleFurnishings ('x', $f, {line=>$g_x,label=>$t_x,tick=>$tk_x});
-		#cut line here	
-		$self->handleFurnishings ('y', $f, {line=>$g_y,label=>$t_y,tick=>$tk_y});
-		#cut line here	
-	}
-	return 1;
+    $gid = "group.trace.tick.$ti";
+    my $tk_y = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
+
+    my $tk_x = $self->D()->getElementByID($gid)
+      || confess("Failed to find required element ID '$gid'");
+
+    croak("Format not correctly passed to drawGrid: not a hash reference")
+      unless ref($f) eq 'HASH';
+
+    #
+    #handle labels if we have a gridlines label
+    if ( defined $f->{labels} ) {
+
+        #Grid positions
+        $self->{grid}->{y_p} = $f->{labels}->{y_ticks}->{position} || [];
+        $self->{grid}->{x_p} = $f->{labels}->{x_ticks}->{position} || [];
+
+        #grid label units
+        $self->{grid}->{x_u} = $f->{labels}->{x_ticks}->{unit} || '';
+        $self->{grid}->{y_u} = $f->{labels}->{y_ticks}->{unit} || '';
+
+        #grid axes labels
+        $self->{grid}->{y_l} = $f->{labels}->{y_ticks}->{label} || [];
+        $self->{grid}->{x_l} = $f->{labels}->{x_ticks}->{label} || [];
+
+        #grid count
+        $self->{grid}->{y_c} = scalar @{ $self->{grid}->{y_p} } || 0;
+        $self->{grid}->{x_c} = scalar @{ $self->{grid}->{x_p} } || 0;
+
+        $self->handleFurnishings( 'x', $f,
+            { line => $g_x, label => $t_x, tick => $tk_x } );
+
+        #cut line here
+        $self->handleFurnishings( 'y', $f,
+            { line => $g_y, label => $t_y, tick => $tk_y } );
+
+        #cut line here
+    }
+    return 1;
 }
 
 =head2 handleFurnishings $orientation, $format, \%anchor_refs
@@ -643,62 +725,70 @@ whose values are svg element object references where the respective entities are
 
 sub handleFurnishings ($$$$$) {
 
-	my $self = shift;
-	my $o = shift;
-	my $f = shift; 
-	my $anchor = shift;
+    my $self   = shift;
+    my $o      = shift;
+    my $f      = shift;
+    my $anchor = shift;
 
-	croak "Orientation should be 'x' or 'y'" unless ($o eq 'x' or $o eq 'y');	
-	croak "gridPosition entry '".$self->{grid}->{"${o}_p"}."' is not an array reference" unless ref $self->{grid}->{"${o}_p"} eq 'ARRAY';
-	croak "anchor entry is not a hash reference" unless ref $anchor eq 'HASH';
-	croak "formatting hash reference is not a hash reference" unless ref $f eq 'HASH';
-	croak "gridCount '".$self->{grid}->{"${o}_c"}."' should be an integer" if $self->{grid}->{"${o}_c"} =~ /\D+/; 
+    croak "Orientation should be 'x' or 'y'" unless ( $o eq 'x' or $o eq 'y' );
+    croak "gridPosition entry '"
+      . $self->{grid}->{"${o}_p"}
+      . "' is not an array reference"
+      unless ref $self->{grid}->{"${o}_p"} eq 'ARRAY';
+    croak "anchor entry is not a hash reference" unless ref $anchor eq 'HASH';
+    croak "formatting hash reference is not a hash reference"
+      unless ref $f eq 'HASH';
+    croak "gridCount '" . $self->{grid}->{"${o}_c"} . "' should be an integer"
+      if $self->{grid}->{"${o}_c"} =~ /\D+/;
 
-	#handle each grid position one at a time
-	my $i = 0;
-	my $tick = $self->getTick($f->{labels},$o);
+    #handle each grid position one at a time
+    my $i    = 0;
+    my $tick = $self->getTick( $f->{labels}, $o );
 
-	foreach  $i (0 .. $self->{grid}->{"${o}_c"}-1) {
+    foreach $i ( 0 .. $self->{grid}->{"${o}_c"} - 1 ) {
 
-		#we only draw if the position data is defined
-		last unless defined $self->{grid}->{"${o}_p"}->[$i];	
-	       	#y-value of the constant-y grid line
-		$anchor->{line}->comment("Gridlines $i for $o");
-		$self->drawGridLine($o,$i, {anchor=>$anchor->{line},},);
-		$anchor->{label}->comment("Labels $i for $o");
-		$self->drawGridLabel($o,$i, { anchor=>$anchor->{label},},);
-		$anchor->{tick}->comment("Tick marks $i for $o");
-		$self->drawTick($o,$i,$tick, {anchor=>$anchor->{tick},},);
-	}
-	return $i;
+        #we only draw if the position data is defined
+        last unless defined $self->{grid}->{"${o}_p"}->[$i];
+
+        #y-value of the constant-y grid line
+        $anchor->{line}->comment("Gridlines $i for $o");
+        $self->drawGridLine( $o, $i, { anchor => $anchor->{line}, }, );
+        $anchor->{label}->comment("Labels $i for $o");
+        $self->drawGridLabel( $o, $i, { anchor => $anchor->{label}, }, );
+        $anchor->{tick}->comment("Tick marks $i for $o");
+        $self->drawTick( $o, $i, $tick, { anchor => $anchor->{tick}, }, );
+    }
+    return $i;
 }
 
-
 sub drawGridLine ($$$$) {
-	my $self = shift;
-	my $o = shift || 'x';
-	my $i = shift;
-	my $args = shift;
-	#set the data values into the object for future use
-	# $self->{grid}->{line}->{dx}
-	# $self->{grid}->{line}->{dy}
-       	$self->{grid}->{line}->{"d$o"} =  defined $self->{grid}->{"${o}_p"} ? 
-			$self->{grid}->{"${o}_p"}->[$i] :
-			($self->T->dy1 - $self->T->dy0)*$i/$self->{grid}->{"${o}_c"};
+    my $self = shift;
+    my $o    = shift || 'x';
+    my $i    = shift;
+    my $args = shift;
 
-	#convert to canvas values and define:
-	# $self->{grid}->{line}->{cx}
-	# $self->{grid}->{line}->{cy}
-        $self->{grid}->{line}->{"c$o"} = $o eq 'y' ?
-		$self->T->mapY($self->{grid}->{line}->{"d$o"}) :
-		$self->T->mapX($self->{grid}->{line}->{"d$o"});
+    #set the data values into the object for future use
+    # $self->{grid}->{line}->{dx}
+    # $self->{grid}->{line}->{dy}
+    $self->{grid}->{line}->{"d$o"} =
+      defined $self->{grid}->{"${o}_p"}
+      ? $self->{grid}->{"${o}_p"}->[$i]
+      : ( $self->T->dy1 - $self->T->dy0 ) * $i / $self->{grid}->{"${o}_c"};
 
-	$args->{anchor}->line( 
-		y1=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $self->T->cy0, 
-		x1=> $o eq 'y' ? $self->T->cx0 : $self->{grid}->{line}->{cx}, 	
-		y2=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $self->T->cy1, 
-		x2=> $o eq 'y' ? $self->T->cx1 : $self->{grid}->{line}->{cx},
-		);
+    #convert to canvas values and define:
+    # $self->{grid}->{line}->{cx}
+    # $self->{grid}->{line}->{cy}
+    $self->{grid}->{line}->{"c$o"} =
+        $o eq 'y'
+      ? $self->T->mapY( $self->{grid}->{line}->{"d$o"} )
+      : $self->T->mapX( $self->{grid}->{line}->{"d$o"} );
+
+    $args->{anchor}->line(
+        y1 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $self->T->cy0,
+        x1 => $o eq 'y' ? $self->T->cx0 : $self->{grid}->{line}->{cx},
+        y2 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $self->T->cy1,
+        x2 => $o eq 'y' ? $self->T->cx1 : $self->{grid}->{line}->{cx},
+    );
 }
 
 =head2 drawTick ['x'|'y'], index, 
@@ -708,81 +798,87 @@ tickmark-generation handler
 =cut
 
 sub drawTick ($$$$$;@) {
-	my $self = shift;
-	my $o = shift || 'x';
-	my $i = shift;
-	my $tick = shift;
-	my $args = shift;
-	my %attrs = @_;
-	#do nothing unless the tickmarks are required,
-	return undef unless defined $tick;
-       	#$self->{grid}->{line}->{"d$o"} =  defined $args->{GridPosition} ? 
-	#		$self->{GridPosition}->[$i] :
-	#		($t->dy1 - $t->dy0)*$i/$args->{GridCount};
+    my $self  = shift;
+    my $o     = shift || 'x';
+    my $i     = shift;
+    my $tick  = shift;
+    my $args  = shift;
+    my %attrs = @_;
 
-	#convert to canvas values
-        #$self->{grid}->{line}->{"c$o"} = $o eq 'y' ?
-	#	$t->mapY($self->{grid}->{line}->{"d$o"} :
-	#	$t->mapX($x_line);
+    #do nothing unless the tickmarks are required,
+    return undef unless defined $tick;
 
-	#handle the front and back ticks
-		my %hash;
-		if ($tick->[0]) {
-			my ($x,$y) = ($self->T->cx0,$self->T->cy0);
-			%hash  = (
-		
-				y1=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $y, 
-				y2=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $y - $tick->[0],
-				x1=> $o eq 'y' ? $x : $self->{grid}->{line}->{cx}, 	
-				x2=> $o eq 'y' ? $x - $tick->[0]: $self->{grid}->{line}->{cx}, 	
-			);
-			$args->{anchor}->line(%hash,%attrs);
-		}
-		if ($tick->[1]) {
-			my ($x,$y) = ($self->T->cx1,$self->T->cy1);
-			%hash  = (
-		
-				y1=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $y, 
-				y2=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $y + $tick->[1], 
-				x1=> $o eq 'y' ? $x : $self->{grid}->{line}->{cx}, 	
-				x2=> $o eq 'y' ? $x + $tick->[1] : $self->{grid}->{line}->{cx}, 	
-			);
-			$args->{anchor}->line(%hash,%attrs);
-		}
+    #$self->{grid}->{line}->{"d$o"} =  defined $args->{GridPosition} ?
+    #		$self->{GridPosition}->[$i] :
+    #		($t->dy1 - $t->dy0)*$i/$args->{GridCount};
+
+    #convert to canvas values
+    #$self->{grid}->{line}->{"c$o"} = $o eq 'y' ?
+    #	$t->mapY($self->{grid}->{line}->{"d$o"} :
+    #	$t->mapX($x_line);
+
+    #handle the front and back ticks
+    my %hash;
+    if ( $tick->[0] ) {
+        my ( $x, $y ) = ( $self->T->cx0, $self->T->cy0 );
+        %hash = (
+
+            y1 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $y,
+            y2 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $y - $tick->[0],
+            x1 => $o eq 'y' ? $x : $self->{grid}->{line}->{cx},
+            x2 => $o eq 'y' ? $x - $tick->[0] : $self->{grid}->{line}->{cx},
+        );
+        $args->{anchor}->line( %hash, %attrs );
+    }
+    if ( $tick->[1] ) {
+        my ( $x, $y ) = ( $self->T->cx1, $self->T->cy1 );
+        %hash = (
+
+            y1 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $y,
+            y2 => $o eq 'y' ? $self->{grid}->{line}->{cy} : $y + $tick->[1],
+            x1 => $o eq 'y' ? $x : $self->{grid}->{line}->{cx},
+            x2 => $o eq 'y' ? $x + $tick->[1] : $self->{grid}->{line}->{cx},
+        );
+        $args->{anchor}->line( %hash, %attrs );
+    }
 }
 
 sub drawGridLabel ($$$$) {
-	my $self = shift;
-	my $o = shift;
-	my $i = shift;
-	my $args = shift;
-	
-	my $c = $self->{grid}->{line}->{"c$o"};
-	my $d = $self->{grid}->{line}->{"d$o"};
-	my $string = defined $args->{grid}->{"${o}_u"} ? 
-		$self->{grid}->{"${o}_l"}->[$i] . " " . $args->{grid}->{"${o}_u"} : 
-		$self->{grid}->{"${o}_l"}->[$i];	
-	#decide what to print as a gridline label
-	my $thistext = defined $self->{grid}->{"${o}_l"} ? #if labels are defined
-		$string :
-		$self->{grid}->{line}->{"d$o"}; #use data positions instead
-	$thistext =~ s/\s$//;
-	
-        return $o eq 'y' ? 
-		$args->{anchor}->text( y=>$self->{grid}->{line}->{cy},x=>$self->T->cx0,)
-		->cdata($thistext) : 
-		$args->{anchor}->text( x=>$self->{grid}->{line}->{cx},y=>$self->T->cy0,)
-		->cdata($thistext) ; 
+    my $self = shift;
+    my $o    = shift;
+    my $i    = shift;
+    my $args = shift;
 
-#	$args->{anchor}->line( 
-#		y1=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $t->cy0, 
-#		x1=> $o eq 'y' ? $t->cx0 : $self->{grid}->{line}->{cx}, 	
-#		y2=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $t->cy1, 
-#		x2=> $o eq 'y' ? $t->cx1 : $self->{grid}->{line}->{y},
-#		);
+    my $c      = $self->{grid}->{line}->{"c$o"};
+    my $d      = $self->{grid}->{line}->{"d$o"};
+    my $string =
+      defined $args->{grid}->{"${o}_u"}
+      ? $self->{grid}->{"${o}_l"}->[$i] . " " . $args->{grid}->{"${o}_u"}
+      : $self->{grid}->{"${o}_l"}->[$i];
+
+    #decide what to print as a gridline label
+    my $thistext = defined $self->{grid}->{"${o}_l"}
+      ?    #if labels are defined
+      $string
+      : $self->{grid}->{line}->{"d$o"};    #use data positions instead
+    $thistext =~ s/\s$//;
+
+    return $o eq 'y'
+      ? $args->{anchor}
+      ->text( y => $self->{grid}->{line}->{cy}, x => $self->T->cx0, )
+      ->cdata($thistext)
+      : $args->{anchor}
+      ->text( x => $self->{grid}->{line}->{cx}, y => $self->T->cy0, )
+      ->cdata($thistext);
+
+    #	$args->{anchor}->line(
+    #		y1=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $t->cy0,
+    #		x1=> $o eq 'y' ? $t->cx0 : $self->{grid}->{line}->{cx},
+    #		y2=> $o eq 'y' ? $self->{grid}->{line}->{cy} : $t->cy1,
+    #		x2=> $o eq 'y' ? $t->cx1 : $self->{grid}->{line}->{y},
+    #		);
 
 }
-
 
 =head2 getTick($label_ref $oation)
 
@@ -814,34 +910,35 @@ Example of a label definition:
 =cut
 
 sub getTick($$$) {
-	my $self = shift;
-	my $l = shift;
-	my $o = shift;
-	$o = lc($o);
-	$o = 'x' unless $o eq 'y';
+    my $self = shift;
+    my $l    = shift;
+    my $o    = shift;
+    $o = lc($o);
+    $o = 'x' unless $o eq 'y';
 
-	my $extender = [0,0];
-	
-	return undef unless defined $l->{"${o}_ticks"}->{style};
+    my $extender = [ 0, 0 ];
 
-	my %map = (
-		x=>['top','bottom'],
-		y=>['left','right']
-	);
+    return undef unless defined $l->{"${o}_ticks"}->{style};
 
-	my $one = $map{$o}->[0];
-	my $two = $map{$o}->[1];
-	
-	#handle constant-x (vertical) gridlines
-	$extender->[0] = 
-		defined $l->{"${o}_ticks"}->{style}->{$one} ? 
-			$l->{"${o}_ticks"}->{style}->{$one}:0;
-	$extender->[1] = 
-		defined $l->{"${o}_ticks"}->{style}->{$two} ? 
-			$l->{"${o}_ticks"}->{style}->{$two}:0;
-	return $extender;	
+    my %map = (
+        x => [ 'top',  'bottom' ],
+        y => [ 'left', 'right' ]
+    );
+
+    my $one = $map{$o}->[0];
+    my $two = $map{$o}->[1];
+
+    #handle constant-x (vertical) gridlines
+    $extender->[0] =
+      defined $l->{"${o}_ticks"}->{style}->{$one}
+      ? $l->{"${o}_ticks"}->{style}->{$one}
+      : 0;
+    $extender->[1] =
+      defined $l->{"${o}_ticks"}->{style}->{$two}
+      ? $l->{"${o}_ticks"}->{style}->{$two}
+      : 0;
+    return $extender;
 }
-
 
 =head2 D
 
@@ -852,8 +949,8 @@ returns the SVG Document object
 =cut
 
 sub D ($) {
-	my $self = shift;
-	return $self->{_svgTree_};
+    my $self = shift;
+    return $self->{_svgTree_};
 }
 
 =head2 T($name)
@@ -865,10 +962,10 @@ returns the currently invoked transformation object. Returns transformation obje
 =cut
 
 sub T ($;$) {
-	my $self = shift;
-	my $name = shift;
-	return $self->{maps}->{$name} if defined $name;
-	return $self->{map};
+    my $self = shift;
+    my $name = shift;
+    return $self->{maps}->{$name} if defined $name;
+    return $self->{map};
 }
 
 #module placeholder
@@ -978,21 +1075,21 @@ Refer to the examples directory inside this distribution for working examples.
 =head1 SEE ALSO
 
 L<SVG::Parser> L<SVG::Manual> L<Expat> L<SAX> L<SVG::TT:Graph> L<Tramsform::Canvas>
+L<http://www.roitsystems.com> L<http://www.roasp.com>
 
 =head1 AUTHOR
 
-Ronan Oger, E<lt>ogerr@roasp.com<gt>
+Ronan Oger, E<lt>ogerr@roasp.com<gt> L<http://www.roitsystems.com> L<http://www.roasp.com>
 
 =head1 CREDITS
 
-This library was developed by Ronan Oger, ROIT Systems Gmbh,  under contract to Data Craftsmen Ltd
-
+This library was developed and written by Ronan Oger, ROIT Systems Gmbh,  under contract to Digital Craftsmen.
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 by Ronan Oger, ROIT Systems GmbH
+Copyright (C) 2004 by Ronan Oger, ROIT Systems GmbH, Zurich, Switzerland
 
-Copyright (C) 2004 by Data  Craftsmen Ltd
+Copyright (C) 2004 by Digital Craftsmen Ltd, London, UK
 
 =head1 LICENSE
 

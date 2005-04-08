@@ -21,10 +21,12 @@ examples/template/test-3.svg
 examples/template/test-4.svg
 examples/template/dc-demo/basic.svg  
 examples/template/dc-demo/copy.svg  
+examples/template/axes.svg
 examples/template/dc-demo/dc-demo-2.svg
 examples/01-graph.pl
 examples/02-graph.pl
 examples/03-graph.pl
 examples/04-graph.pl
+examples/05-axes.pl
 lib/SVG/Template/Graph.pm
 META.yml                                 Module meta-data (added by MakeMaker)
