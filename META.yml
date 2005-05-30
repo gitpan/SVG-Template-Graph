@@ -1,10 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         SVG-Template-Graph
-version:      0.04
+version:      0.05
 version_from: lib/SVG/Template/Graph.pm
 installdirs:  site
 requires:
+    Carp:                          0.01
+    Data::Dumper:                  0.01
+    POSIX:                         0.01
     SVG:                           2.32
     SVG::Parser:                   0.01
     Transform::Canvas:             0.001

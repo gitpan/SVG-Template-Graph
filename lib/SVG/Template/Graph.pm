@@ -7,9 +7,10 @@ use Carp;
 use SVG::Parser;
 use Exporter;
 use Transform::Canvas;
+use POSIX qw(strftime);
+use Data::Dumper;    #get rid of this on rollout
 
-use Data::Dumper    #get rid of this on rollout
-  our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
@@ -76,7 +77,7 @@ SVG::Template::Graph - Perl extension for generating template-driven graphs with
  $tt->setGraphTitle(['Hello svg graphing world','I am a subtitle']);
  
  #generate the traces. 
- $tt->drawTraces($data);
+ $tt->drawTraces($data,$anchor_rectangle_id);
  #serialize and print
  print  $tt->burn();
 
@@ -120,8 +121,10 @@ sub new ($;$;@) {
     my $self;
     my %default_attributes = %SUPER::default_attributes;
 
-    $self->{_config_}  = {};
-    $self->{_svgTree_} = {};
+    $self->{_config_}    = {};
+    $self->{_svgTree_}   = {};
+    $self->{_IDCACHE_}   = {};
+    $self->{graphTarget} = undef;
 
     # establish defaults for unspecified attributes
     $self              = $class->SUPER::new();
@@ -136,7 +139,9 @@ sub burn ($;@) {
     return $self->D()->xmlify(%attrs);
 }
 
-=head2 $text_ref = setGraphTitle($string|\@strings, %attributes)
+=head2 setGraphTitle
+
+ my $svg_element_ref = $tt->setGraphTitle ($string|\@strings, %attributes)
 
 Generate the text for the Graph Title
 Returns the reference to the text element
@@ -149,9 +154,12 @@ sub setGraphTitle ($$;@) {
     return $self->_setAxisText( "group.graph.title", $text, @_ );
 }
 
-=head2 setTraceTitle( $string|\@strings, %attributes )
+=head2 setTraceTitle
 
 set the title of a trace
+
+ $tt->setTraceTitle( $string|\@strings, %attributes )
+
 
 =cut
 
@@ -162,10 +170,13 @@ sub setTraceTitle ($$$;@) {
     return $self->_setAxisText( "group.trace.title.$ti", $text, @_ );
 }
 
-=head2 $text_ref = setXAxisTitle($axis_number, $string|\@strings,%attributes)
+=head2  setXAxisTitle
 
 Generate the text for the Graph X-Axis Titles
 Returns the reference to the text element
+
+ $tt->setXAxisTitle($axis_number, $string, %attributes)
+ $tt->setXAxisTitle($axis_number, \@strings, %attributes)
 
 =cut
 
@@ -178,10 +189,14 @@ sub setXAxisTitle ($$$;@) {
     return $self->_setAxisText( "group.trace.axes.title.x.$ti", $text, @_ );
 }
 
-=head2 $text_ref = setYAxisTitle($axis_number, $string|\@strings,%attributes)
+=head2 setYAxisTitle
 
 Generate the text for the Graph Y-Axis Titles
 Returns the reference to the text element
+
+
+ $tt->setYAxisTitle($axis_number, $string,%attributes)
+ $tt->setYAxisTitle($axis_number, \@strings,%attributes)
 
 =cut
 
@@ -194,9 +209,47 @@ sub setYAxisTitle ($$$;@) {
     return $self->_setAxisText( "group.trace.axes.title.y.$ti", $text, @_ );
 }
 
-=head2 _setAxisText ($id,$text|\@text,%attributes)
+=head2 _gg
 
-Internal method called by setGraphTitle and setAxisTitle to do the actual work
+Check that a group exists (is a valid, defined group in the SVG DOM) and create a group in the document if id does not exist. Return the group element
+This ensures that even if a designer failed to generate a group ID in the drawing, you will get a drawing with the right group names.
+If type is defined, an element of $type with %attributes is defined.
+
+
+ my $svg_element = $tt->_gg ($id)
+ my $svg_element = $tt->_gg ($id,'rect',width=>10,height=>10,
+		x=>10,y=>10,fill=>'none',stroke=>'red')
+
+=cut
+
+sub _gg ($$;@) {
+    my $self  = shift;
+    my $id    = shift || 'abc';
+    my $type  = shift || 'group';
+    my %attrs = @_;
+    return $self->{_IDCACHE_}->{$id} if $self->{_IDCACHE_}->{$id};
+    my $d = $self->D()
+      || confess("E1000: Supplied SVG input  not properly parsed!!");
+    my $tg = $d->getElementByID($id);
+    unless ($tg) {
+
+#        carp("element $type with id '$id' not found in document when setting a text field.");
+        $d->getRootElement()->comment("missing group $id added by pid $$ $0");
+        $tg = $d->getRootElement()->element( $type, id => $id, %attrs );
+
+       #        carp("element $type with id '$id' created under root element ");
+    }
+    $self->{_IDCACHE_}->{$id} = $tg;
+
+    #print STDERR "Saving $tg to IDCACHE $id\n";
+    return $tg;
+}
+
+=head2 _setAxisText
+
+Internal method called by setGraphTitle and setAxisTitle to do the actual work. Not really intended to be accessed from the outside but available for advanced users.
+
+ $tt->_setAxisText ($id,$text|\@text,%attributes)
 
 =cut
 
@@ -214,10 +267,7 @@ sub _setAxisText ($$$;@) {
 "No text was supplied. Either supply a string or an array reference containing strings"
       )
       unless scalar @$text;
-    my $d = $self->D() || confess("Supplied SVG input  not properly parsed!!");
-    my $tg = $d->getElementByID($id);
-    confess("Group '$id' not found in document when setting a text field.$!")
-      unless $tg;
+    my $tg = $self->_gg($id);
     my $to = $tg->text(%attrs)
       || carp("Failed to generate an Axis text element within group '$id'.");
     my %args = ( x => 0 );
@@ -263,6 +313,8 @@ directory for working samples.
                 'y_min' => -0.1,
                 'x_title' => 'Calendar Year',
                 'y_title' => '% Annual Performance',
+		'x_axis' => 0, # do not automatically draw an x-axis
+		'y_axis' => 1, #automatically draw a y-axis
                 
 		#define the labels that provide
                 #the data context.
@@ -295,7 +347,7 @@ directory for working samples.
 
 =cut
 
-=head2 getCanvasBoxBoundaries($id_anchor_data) 
+=head2 getCanvasBoxBoundaries() 
 
 if $id_anchor_data is an array reference, then it uses it to describe the extents of the viewbox into which the current drawing will happen.
 If $id_anchor_data is a string then its associated xml element is assumed to be a rectangle and getCanvasBoxBoundaries uses the rectangle geometry.to define the plot bounding box.
@@ -307,10 +359,10 @@ Action: set the boundary box data in the object and returns the array reference:
 
 =cut
 
-sub getCanvasBoxBoundaries ($;$) {
+sub getCanvasBoxBoundaries ($) {
 
     my $self = shift;
-    my $id   = shift || 'rectangle.graph.data.space';
+    my $id   = $self->getGraphTarget;
 
     unless ( defined $self->{_config_}->{xmin_p} ) {
 
@@ -380,11 +432,11 @@ construction detail: draws the content into a group.
 
 sub drawAxis ($$$) {
     my $self = shift;
-    my $id   = shift;         #anchor id
-    my $o    = shift || '';
+    my $id   = shift;          #anchor id
+    my $o    = shift || '';    #orientation
     my $g;
     if ( !$o || ( $o eq 'x' || $o eq 'y' ) ) {
-        $g = $self->D->getElementByID($id);
+        $g = $self->_gg($id);
 
         #draw the x-axis if it appears in the canvas window
         $g->line(
@@ -422,6 +474,10 @@ sub drawTraces ($$) {
     my $self             = shift;
     my $struct           = shift;
     my $insert_anchor_id = shift;
+    unless ($insert_anchor_id) {
+        $self->setGraphTarget;
+        $insert_anchor_id = $self->getGraphTarget;
+    }
 
     #make sure we got an array ref for $struct
     croak(
@@ -459,14 +515,14 @@ returns the reference of the polyline/path/polygon tag that was generated.
 =cut
 
 sub getTracePointMap ($$$$;@) {
-    my $self          = shift;
-    my $ti            = shift;
-    my $type          = shift;
-    my $p             = shift;
-    my $insert_anchor = shift;
-    my %args          = @_;
+    my $self             = shift;
+    my $ti               = shift;
+    my $type             = shift;
+    my $p                = shift;
+    my $insert_anchor_id = shift;
+    my %args             = @_;
 
-    my $canvas = $self->getCanvasBoxBoundaries($insert_anchor);
+    my $canvas = $self->getCanvasBoxBoundaries;
 
     #assign a default line drawing type
     $p->{lineGraph} = 1 unless $p->{barGraph};
@@ -534,7 +590,10 @@ sub lineGraph ($$$$@) {
     my %args   = @_;
     print STDERR "Generating a line graph for trace $ti" if $main::DEBUG;
 
-    $type = 'path' unless ( $type eq 'polyline' || $type eq 'polygon' );
+    $type = 'path'
+      unless ( $type eq 'polyline'
+        || $type eq 'polygon'
+        || $type eq 'scatter' );
     my %closed = ();
     %closed = ( '-closed' => 'true' ) if ( lc( $args{closed} ) eq 'true' );
 
@@ -551,7 +610,7 @@ sub lineGraph ($$$$@) {
     #invoke the transformation from data space to canvas space
     my ( $min_x, $min_y, $max_x, $max_y ) = @$canvas;
     my $id_string = "group.trace.data.$ti";
-    my $traceBase = $self->D()->getElementByID($id_string)
+    my $traceBase = $self->_gg($id_string)
       || confess(
         "Failed to find required element 
 					id '$id_string'"
@@ -582,11 +641,8 @@ sub barGraph ($$$$@) {
 
     my $Points = scalar @{ $points->[0] };
 
-    my $traceBase = $self->D()->getElementByID("group.trace.data.$ti")
-      || confess(
-        "Failed to find required element 
-					id group.trace.data.$ti"
-      );
+    my $traceBase = $self->_gg("group.trace.data.$ti")
+      || confess("Failed to find required element id group.trace.data.$ti");
 
     #we do a simple width linerization which falls down
     #when the bars do not span the image.
@@ -642,24 +698,23 @@ sub drawGridLines ($$$) {
 
     my $gid = undef;
     $gid = "group.trace.axes.x.$ti";
-    my $g_x = $self->D()->getElementByID($gid)
+    my $g_x = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
     $gid = "group.trace.axes.y.$ti";
-    my $g_y = $self->D()->getElementByID($gid)
+    my $g_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
 
     $gid = "group.trace.axes.values.x.$ti";
-    my $t_x = $self->D()->getElementByID($gid)
+    my $t_x = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
     $gid = "group.trace.axes.values.y.$ti";
-    my $t_y = $self->D()->getElementByID($gid)
+    my $t_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
 
     $gid = "group.trace.tick.$ti";
-    my $tk_y = $self->D()->getElementByID($gid)
+    my $tk_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
-
-    my $tk_x = $self->D()->getElementByID($gid)
+    my $tk_x = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
 
     croak("Format not correctly passed to drawGrid: not a hash reference")
@@ -967,6 +1022,227 @@ sub T ($;$) {
     return $self->{maps}->{$name} if defined $name;
     return $self->{map};
 }
+
+=head2 setGraphTarget $targetid, $elementType <rect>, %element_attributes
+
+define the graph target (currently only rectangles are accepted) on top of which the data will be drawn
+
+=cut
+
+sub setGraphTarget ($$;@) {
+    my $self = shift;
+    $self->{graphTarget} = shift || 'rectangle.graph.data.space';
+    my $type = shift || 'rect';
+    return $self->_gg( $self->{graphTarget}, $type, @_ );
+}
+
+=head2 getGraphTarget()
+
+returns the current graph target
+
+=cut
+
+sub getGraphTarget ($$;@) {
+    my $self = shift;
+    return $self->{graphTarget};
+}
+
+=head2 autoGrid ($min,$max,$count)
+
+generates a reference to an array of $count+1 evenly distributed values ranging between $min and $max  
+
+	$tt->autoGrid(0,100,10);
+
+=cut
+
+sub autoGrid ($$$) {
+    my $self = shift;
+    my ( $min, $max, $count ) = @_;
+    my @array = ( 0 .. $count );
+    map { $_ = ( $max - $min ) / ($count) * $_ } @array;
+
+    #print STDERR Dumper \@array;
+    return \@array;
+}
+
+=head2 Format
+
+format an array of values according to formatting rules
+
+ $tt->Format \@array,$format,$format_attribute[,@more_format_attributes]
+
+ $format can be 'time' or 'printf'
+
+for 'time', uses the Time::localtime 
+
+example 1: formatting to print the verbose date
+
+ $a = [
+   '0',
+   '2.75',
+   '5.5',
+   '8.25',
+   '11'
+ ];
+
+ my $b = $tt->Format($a,'time',"%a %b %e %H:%M:%S %Y");
+ 
+returns 
+
+ $b = [
+   'Thu Jan  1 01:00:00 1970',
+   'Thu Jan  1 01:00:02 1970',
+   'Thu Jan  1 01:00:05 1970',
+   'Thu Jan  1 01:00:08 1970',
+   'Thu Jan  1 01:00:11 1970'
+ ];
+
+Format uses POSIX function b<strftime> 
+Refer to L<POSIX> for more information on time formating.
+ 
+example 2: formatting to print to three decimal places using sprintf
+ 
+ $tt->Format([1.123,2.1234,3.12345,4.123456],'sprintf','%.3f'); 
+
+example 3: formatting to print a percent sign
+ 
+ $tt->Format([1.123,2.1234,3.12345,4.123456],'sprintf','%%'); 
+
+
+=cut
+
+sub Format ($$$;@) {
+    my $self   = shift;
+    my $array  = shift;
+    my $format = shift || 'sprintf';
+    my $fmt    = shift || '%.3f';
+    my @attrs  = @_;
+    if ( $format eq 'time' ) {
+        map { $_ = strftime( $fmt, _getLocalTime($_) ) } @$array;
+    } elsif ( $format eq 'printf' ) {
+        map { $_ = printf( $fmt, $_ ) } @$array;
+    } elsif ( $format eq 'sprintf' ) {
+        map { $_ = sprintf( $fmt, $_ ) } @$array;
+    } else {
+        print STDERR "processing default\n";
+    }
+    return $array;
+}
+
+sub _getLocalTime ($) {
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+      localtime(shift @_);
+    return ( $sec, $min, $hour, $mday, $mon, $year , $wday, $yday,
+        $isdst );
+}
+
+=head2 simpleGraph 
+
+=cut
+
+sub simpleGraph ($$$@) {
+    my $self  = shift;
+    my $id    = shift;
+    my $type  = shift;
+    my %attrs = @_;
+    my $d     = $self->D;
+
+    my $g = $d->group( id => $id, 'text-anchor' => 'middle' );
+    $g->comment(
+        "drawing element which defines the graph boundaries for graph $id");
+    my $graph = $g->rect(%attrs);
+    my $cy    = $graph->getAttribute('x') + $graph->getAttribute('width') / 2;
+    my $cx    = $graph->getAttribute('y') / 2;
+    $g->group(
+        id        => "group.graph.title",
+        class     => "group.graph.title",
+        transform => "translate($cx,$cy)",
+    )->comment("the graph title");
+    my $t = $g->group( id => "group.trace", );
+    $t->comment("the trace group");
+    $t->group(
+        id        => "group.trace.1",
+        class     => "group.trace",
+        transform => "translate($cx,$cy)",
+    )->comment("trace 1");
+
+    $t->group(
+        id    => "group.trace.title.1",
+        class => "group.trace.title",
+    )->comment("the trace title");
+    $t->group(
+        id    => "group.trace.tick.1",
+        class => "group.trace.tick",
+    )->comment("the trace ticks");
+    my $a = $t->group(
+        id    => "group.trace.axes.1",
+        class => "group.trace.axes",
+    );
+    $a->group(
+        id    => "group.trace.axes.x.1",
+        class => "group.trace.axes.x",
+    )->comment("the trace x axes");
+    $a->group(
+        id    => "group.trace.axes.y.1",
+        class => "group.trace.axes.y",
+    )->comment("the trace y axes");
+    $a->group(
+        id    => "group.trace.axes.values.x.1",
+        class => "group.trace.axes.values.x",
+    )->comment("the trace axes values in y axis");
+    $a->group(
+        id    => "group.trace.axes.values.y.1",
+        class => "group.trace.axes.values.y",
+    )->comment("the trace axes values in y axis");
+
+    $a->group(
+        id    => "group.trace.axes.titles.x.1",
+        class => "group.trace.axes.titles.x",
+    )->comment("the trace axes titles in x axis");
+    $a->group(
+        id    => "group.trace.axes.titles.y.1",
+        class => "group.trace.axes.titles.y",
+    )->comment("the trace axes titles in y axis");
+}
+
+my $dump = qq {<rect "/>
+<group id="group.graph.title"/>
+<!-- trace insertion takes place here -->
+<g id="group.trace.1" fill="none"
+                stroke="black" stroke-width="2">
+<group id="group.trace.title.1"/>
+                     <!-- draw the data below the gridlines -->
+                     <g id="group.trace.data.1"
+                        stroke="#333333" stroke-width="0.5"
+                        fill="#411DA4"/>
+                     <g id="group.trace.grid.1"
+                        stroke="gray" stroke-width="1"/>
+                     <g id="group.trace.tick.1"
+                        stroke="black" stroke-width="1.5"/>
+                     <g id="group.trace.axes.1"
+                        stroke="none" fill="black">
+                             <g id="group.trace.axes.x.1" stroke="gray"
+                                fill="none" stroke-width="1"/>
+                             <g id="group.trace.axes.y.1" stroke="gray"
+                                fill="none" stroke-width="1"/>
+                             <g id="group.trace.axes.values.x.1" text-anchor="middle"
+                                stroke="none" fill="black" transform="translate(0,265)"/>
+                             <g id="group.trace.axes.values.y.1" stroke="none"
+                                fill="black" text-anchor="start" transform="translate(-40,0)"/>
+                             <g id="group.trace.axes.title.x.1" text-anchor="middle"
+                                transform="translate(365,370)" font-size="12"
+                                fill="#411DA4" font-weight="Bold"/>
+                             <g id="group.trace.axes.title.y.1.c" text-anchor="end"
+                                transform="translate(40,200)">
+                                     <g id="group.trace.axes.title.y.1"
+                                        transform="rotate(-90)" font-weight="Bold"
+                                        font-size="12" fill="#411DA4"/>
+                             </g>
+                     </g>
+             </g>
+         <!-- end of trace insertion 1 -->
+
+};
 
 #module placeholder
 1;
