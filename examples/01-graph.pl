@@ -2,7 +2,7 @@
 use strict;
 use SVG::Template::Graph;
 use Carp;
-
+use Data::Dumper;
 my $data = 
 [
 	{
@@ -57,6 +57,9 @@ unless (-r $file) {
 
 #construct a new SVG::Template::Graph object with a file handle
 my $tt = SVG::Template::Graph->new($file);
+
+print  Dumper $tt->D;
+
 #set up the titles for the graph
 $tt->setGraphTitle(['Hello svg graphing world','I am a subtitle']);
 $tt->setYAxisTitle(1,['I am Y-axis One','Subtitle - % of total length']);

@@ -7,20 +7,21 @@ WriteMakefile(
     NAME         => 'SVG::Template::Graph',
     VERSION_FROM => 'lib/SVG/Template/Graph.pm',    # finds $VERSION
     PREREQ_PM    => {
-        SVG::Parser       => 0.01,
+        SVG::Parser       => 0.09,
         SVG               => 2.32,
-        Transform::Canvas => 0.001,
-        POSIX => 0.01,
-        Data::Dumper      => 0.01,
+        Transform::Canvas => 0.02,
+        POSIX 		  => 0.01,
+        Data::Dumper      => 2.00,
         Carp              => 0.01,
     },                                              # e.g., Module::Name => 1.1
     (
-        $] >= 5.005
+        $] >= 5.007
         ?    ## Add these new keywords supported since 5.005
           (
             ABSTRACT_FROM =>
               'lib/SVG/Template/Graph.pm',    # retrieve abstract from module
-            AUTHOR => 'Ronan Oger <ronan@roasp.com>'
+            AUTHOR => 'Ronan Oger <ronan.oger@vectoreal.com>'
+
           )
         : ()
     ),

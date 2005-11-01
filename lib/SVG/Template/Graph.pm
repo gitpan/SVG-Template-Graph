@@ -10,7 +10,7 @@ use Transform::Canvas;
 use POSIX qw(strftime);
 use Data::Dumper;    #get rid of this on rollout
 
-our $VERSION = '0.05';
+our $VERSION = '0.11';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
@@ -119,6 +119,7 @@ sub new ($;$;@) {
     my ( $proto, $file, %attrs ) = @_;
     my $class = ref $proto || $proto;
     my $self;
+
     my %default_attributes = %SUPER::default_attributes;
 
     $self->{_config_}    = {};
@@ -128,8 +129,8 @@ sub new ($;$;@) {
 
     # establish defaults for unspecified attributes
     $self              = $class->SUPER::new();
-    $self->{_svgTree_} = $self->parsefile($file);
-    $self->{_idmap_}   = {};
+    $self->{_svgTree_} = $self->parse_uri($file);
+    $self->{_IDMap_}   = {};
     return $self;
 }
 
@@ -151,7 +152,7 @@ Returns the reference to the text element
 sub setGraphTitle ($$;@) {
     my $self = shift;
     my $text = shift;
-    return $self->_setAxisText( "group.graph.title", $text, @_ );
+    return $self->_setAxisText($self->mapTemplateId("group.graph.title"), $text, @_ );
 }
 
 =head2 setTraceTitle
@@ -167,7 +168,7 @@ sub setTraceTitle ($$$;@) {
     my $self = shift;
     my $ti   = shift;
     my $text = shift;
-    return $self->_setAxisText( "group.trace.title.$ti", $text, @_ );
+    return $self->_setAxisText($self->mapTemplateId("group.trace.title.$ti"), $text, @_ );
 }
 
 =head2  setXAxisTitle
@@ -186,7 +187,7 @@ sub setXAxisTitle ($$$;@) {
     #the trace index
     my $ti   = shift;
     my $text = shift;
-    return $self->_setAxisText( "group.trace.axes.title.x.$ti", $text, @_ );
+    return $self->_setAxisText($self->mapTemplateId("group.trace.axes.title.x.$ti"), $text, @_ );
 }
 
 =head2 setYAxisTitle
@@ -206,7 +207,7 @@ sub setYAxisTitle ($$$;@) {
     #the trace index
     my $ti   = shift;
     my $text = shift;
-    return $self->_setAxisText( "group.trace.axes.title.y.$ti", $text, @_ );
+    return $self->_setAxisText($self->mapTemplateId("group.trace.axes.title.y.$ti"), $text, @_ );
 }
 
 =head2 _gg
@@ -233,7 +234,7 @@ sub _gg ($$;@) {
     my $tg = $d->getElementByID($id);
     unless ($tg) {
 
-#        carp("element $type with id '$id' not found in document when setting a text field.");
+        carp("element $type with id '$id' not found in document when setting a text field.");
         $d->getRootElement()->comment("missing group $id added by pid $$ $0");
         $tg = $d->getRootElement()->element( $type, id => $id, %attrs );
 
@@ -560,9 +561,9 @@ sub getTracePointMap ($$$$;@) {
             $p->{barSpace}, %args );
     }
 
-    $self->drawAxis( "group.trace.axes.x.$ti", 'x' )
+    $self->drawAxis($self->mapTemplateId("group.trace.axes.x.$ti"), 'x' )
       if $p->{format}->{x_axis};
-    $self->drawAxis( "group.trace.axes.y.$ti", 'y' )
+    $self->drawAxis($self->mapTemplateId("group.trace.axes.y.$ti"), 'y' )
       if $p->{format}->{y_axis};
 
     #set the trace titles if they are specified
@@ -588,7 +589,6 @@ sub lineGraph ($$$$@) {
     my $points = shift;
     my $canvas = shift;
     my %args   = @_;
-    print STDERR "Generating a line graph for trace $ti" if $main::DEBUG;
 
     $type = 'path'
       unless ( $type eq 'polyline'
@@ -609,7 +609,7 @@ sub lineGraph ($$$$@) {
 
     #invoke the transformation from data space to canvas space
     my ( $min_x, $min_y, $max_x, $max_y ) = @$canvas;
-    my $id_string = "group.trace.data.$ti";
+    my $id_string =$self->mapTemplateId("group.trace.data.$ti");
     my $traceBase = $self->_gg($id_string)
       || confess(
         "Failed to find required element 
@@ -697,21 +697,21 @@ sub drawGridLines ($$$) {
     my $f    = shift;    #formatting data structure ($in->{format})
 
     my $gid = undef;
-    $gid = "group.trace.axes.x.$ti";
+    $gid =$self->mapTemplateId("group.trace.axes.x.$ti");
     my $g_x = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
-    $gid = "group.trace.axes.y.$ti";
+    $gid =$self->mapTemplateId("group.trace.axes.y.$ti");
     my $g_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
 
-    $gid = "group.trace.axes.values.x.$ti";
+    $gid =$self->mapTemplateId("group.trace.axes.values.x.$ti");
     my $t_x = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
-    $gid = "group.trace.axes.values.y.$ti";
+    $gid =$self->mapTemplateId("group.trace.axes.values.y.$ti");
     my $t_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
 
-    $gid = "group.trace.tick.$ti";
+    $gid =$self->mapTemplateId("group.trace.tick.$ti");
     my $tk_y = $self->_gg($gid)
       || confess("Failed to find required element ID '$gid'");
     my $tk_x = $self->_gg($gid)
@@ -1031,23 +1031,23 @@ define the graph target (currently only rectangles are accepted) on top of which
 
 sub setGraphTarget ($$;@) {
     my $self = shift;
-    $self->{graphTarget} = shift || 'rectangle.graph.data.space';
+    $self->{graphTarget} = shift || $self->mapTemplateId('rectangle.graph.data.space');
     my $type = shift || 'rect';
     return $self->_gg( $self->{graphTarget}, $type, @_ );
 }
 
-=head2 getGraphTarget()
+=head2 getGraphTarget
 
 returns the current graph target
 
 =cut
 
-sub getGraphTarget ($$;@) {
+sub getGraphTarget ($) {
     my $self = shift;
     return $self->{graphTarget};
 }
 
-=head2 autoGrid ($min,$max,$count)
+=head2 autoGrid (int $min, int $max, int $count)
 
 generates a reference to an array of $count+1 evenly distributed values ranging between $min and $max  
 
@@ -1136,7 +1136,42 @@ sub _getLocalTime ($) {
         $isdst );
 }
 
-=head2 simpleGraph 
+=head2 mapTemplateId string $id
+
+=cut 
+
+sub mapTemplateId ($$) {
+	my $self = shift;
+	my $myid = shift;
+	unless (defined $myid) {
+		carp "undefined xml ID! Setting to 'unknown'" . join (":",caller()) ;
+		$myid = 'unknown';
+		$self->{_IDMap_}->{$myid} = $myid;
+	}
+	unless ($self->{_IDMap_}->{$myid}) {
+		carp "Undeclared xml ID $myid! Adding to ID list";
+		$self->{_IDMap_}->{$myid} = $myid;
+	}
+#	getIdMap unless $self->{_IDMap_};
+	print STDERR "$myid = $self->{_IDMap_}->{$myid}\n";
+	return $self->{_IDMap_}->{$myid} || $myid;
+}
+
+=head2 setTemplateIdMap hash template_pairs
+
+assign the definitions between the internal keys and the ids in the template at hand.
+This method need not be called as all IDs automatically get run through if the default IDs specified below are used.
+
+=cut
+
+
+sub setTemplateIdMap ($@) {
+	my $self = shift;
+	my %TemplateMap = @_;
+	$self->{_IDMap_} = \%TemplateMap; 
+}
+
+=head2 simpleGraph string $id, string $type, hash %attrs
 
 =cut
 
@@ -1154,54 +1189,54 @@ sub simpleGraph ($$$@) {
     my $cy    = $graph->getAttribute('x') + $graph->getAttribute('width') / 2;
     my $cx    = $graph->getAttribute('y') / 2;
     $g->group(
-        id        => "group.graph.title",
-        class     => "group.graph.title",
+        id        =>$self->mapTemplateId("group.graph.title"),
+        class     =>$self->mapTemplateId("group.graph.title"),
         transform => "translate($cx,$cy)",
     )->comment("the graph title");
-    my $t = $g->group( id => "group.trace", );
+    my $t = $g->group( id =>$self->mapTemplateId("group.trace"), );
     $t->comment("the trace group");
     $t->group(
-        id        => "group.trace.1",
-        class     => "group.trace",
+        id        =>$self->mapTemplateId("group.trace.1"),
+        class     =>$self->mapTemplateId("group.trace"),
         transform => "translate($cx,$cy)",
     )->comment("trace 1");
 
     $t->group(
-        id    => "group.trace.title.1",
-        class => "group.trace.title",
+        id    =>$self->mapTemplateId("group.trace.title.1"),
+        class =>$self->mapTemplateId("group.trace.title"),
     )->comment("the trace title");
     $t->group(
-        id    => "group.trace.tick.1",
-        class => "group.trace.tick",
+        id    =>$self->mapTemplateId("group.trace.tick.1"),
+        class =>$self->mapTemplateId("group.trace.tick"),
     )->comment("the trace ticks");
     my $a = $t->group(
-        id    => "group.trace.axes.1",
-        class => "group.trace.axes",
+        id    =>$self->mapTemplateId("group.trace.axes.1"),
+        class =>$self->mapTemplateId("group.trace.axes"),
     );
     $a->group(
-        id    => "group.trace.axes.x.1",
-        class => "group.trace.axes.x",
+        id    =>$self->mapTemplateId("group.trace.axes.x.1"),
+        class =>$self->mapTemplateId("group.trace.axes.x"),
     )->comment("the trace x axes");
     $a->group(
-        id    => "group.trace.axes.y.1",
-        class => "group.trace.axes.y",
+        id    =>$self->mapTemplateId("group.trace.axes.y.1"),
+        class =>$self->mapTemplateId("group.trace.axes.y"),
     )->comment("the trace y axes");
     $a->group(
-        id    => "group.trace.axes.values.x.1",
-        class => "group.trace.axes.values.x",
+        id    =>$self->mapTemplateId("group.trace.axes.values.x.1"),
+        class =>$self->mapTemplateId("group.trace.axes.values.x"),
     )->comment("the trace axes values in y axis");
     $a->group(
-        id    => "group.trace.axes.values.y.1",
-        class => "group.trace.axes.values.y",
+        id    =>$self->mapTemplateId("group.trace.axes.values.y.1"),
+        class =>$self->mapTemplateId("group.trace.axes.values.y"),
     )->comment("the trace axes values in y axis");
 
     $a->group(
-        id    => "group.trace.axes.titles.x.1",
-        class => "group.trace.axes.titles.x",
+        id    =>$self->mapTemplateId("group.trace.axes.titles.x.1"),
+        class =>$self->mapTemplateId("group.trace.axes.titles.x"),
     )->comment("the trace axes titles in x axis");
     $a->group(
-        id    => "group.trace.axes.titles.y.1",
-        class => "group.trace.axes.titles.y",
+        id    =>$self->mapTemplateId("group.trace.axes.titles.y.1"),
+        class =>$self->mapTemplateId("group.trace.axes.titles.y"),
     )->comment("the trace axes titles in y axis");
 }
 
@@ -1374,5 +1409,7 @@ it under the same terms as Perl itself, either Perl version 5.8.3 or,
 at your option, any later version of Perl 5 you may have available.
 
 =cut
+
+1;
 
 __END__

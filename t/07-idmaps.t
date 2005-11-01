@@ -6,6 +6,7 @@
 use Test::Simple tests => 3;
 use strict;
 use SVG::Template::Graph;
+use Config::General;
 #########################
 
 my $data = [];

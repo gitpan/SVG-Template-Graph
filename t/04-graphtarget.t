@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl Template-Graph-SVG.t'
 
 #########################
-use Test::More tests => 12;
+use Test::More tests => 14;
 use SVG::Template::Graph;
 #########################
 
@@ -73,6 +73,7 @@ ok(scalar @{$data->[0]->{data}->{x_val}} == scalar @{$data->[0]->{data}->{y_val}
 my $file = 't/template1.svg';
 ok(-r $file,'test template file exists'); 
 ok($tt = SVG::Template::Graph->new($file),'load SVG::Template::Graph object');
+ok($tt->setGraphTarget('rectangle.graph.data.space','rect', width=>100,height=>100,x=>10,y=>10),'set graph target');
 ok($tt->setGraphTitle(['Hello svg graphing world','I am a subtitle']),'set graph title');
 ok($tt->setYAxisTitle(1,['I am Y-axis One','Subtitle - % of total length']),'set graph title');
 ok($tt->setYAxisTitle(2,['I am Y-axis Two','More text lives here']),'set Y Axis title 2');
@@ -82,6 +83,7 @@ ok($tt->setXAxisTitle(2,'I am X-axis Two'),'set X axis two title');
 ok($out = $tt->burn(-elsep=>'',-indent=>''),'serialise');
 ok(1==1,'generated one line');
 ok($out =~ /Hello\ssvg\sgraphing\sworld/gs,'check that graph title showed up in output');
-open OUT,"> /tmp/out.svg";
-print OUT $out;
-close OUT;
+ok($out =~ /rectangle\.graph\.data\.space/gs,'graph target shows up in output');
+#open OUT,"> /tmp/out.svg";
+#print OUT $out;
+#close OUT;

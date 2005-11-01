@@ -10,9 +10,10 @@ my $data = [];
 my $tt;
 my $svg;
 my $out;
-my $file = 't/template.svg';
+my $file = 't/template1.svg';
 ok(-r $file,'test template file exists'); 
 ok($tt = SVG::Template::Graph->new($file),'load SVG::Template::Graph object');
+	
 ok($tt->setGraphTitle(['Hello svg graphing world','I am a subtitle']),'set graph title');
 
 

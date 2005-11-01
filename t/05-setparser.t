@@ -3,9 +3,9 @@
 
 #########################
 
-use Test::Simple tests => 3;
+use Test::More tests => 4;
 use strict;
-use SVG::Template::Graph;
+BEGIN { use_ok('SVG::Template::Graph') };
 #########################
 
 my $data = [];
@@ -14,5 +14,5 @@ my $svg;
 my $out;
 my $file = 't/template1.svg';
 ok(-r $file,'test template file exists'); 
-ok($tt = SVG::Template::Graph->new($file),'load SVG::Template::Graph object');
+ok($tt  = SVG::Template::Graph->new($file),'load SVG::Template::Graph object');
 ok($out = $tt->burn(),'serialise');
