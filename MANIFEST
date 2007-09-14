@@ -4,14 +4,19 @@ MANIFEST
 README
 
 t/01-load.t
-t/02-titles.t
-t/03-lines.t
-t/04-graphtarget.t
-t/05-setparser.t
-t/06-addmissinggroup.t
-t/07-idmaps.t
-t/08-saxtest.t
-t/idmap.cfg
+t/04-graphtarget.t      
+t/07-idmaps.t   
+t/in.svg         
+t/template2.svg
+t/02-titles.t  
+t/05-setparser.t        
+t/08-saxtest.t  
+t/out.svg
+t/03-lines.t   
+t/06-addmissinggroup.t  
+t/idmap.cfg     
+t/template1.svg
+
 examples/idmap.cfg
 examples/data/1.conf
 examples/data/2.conf

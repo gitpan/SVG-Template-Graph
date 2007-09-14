@@ -1,5 +1,7 @@
 Revision history for Perl extension SVG::Template::Graph.
 
+0.12  Thurs Sept 14 2007 fixed test support. Added missing files to manifest
+
 0.11  Wed Oct 19
 	- Added choice-of-parser support    
 0.10

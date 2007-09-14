@@ -10,7 +10,7 @@ use Transform::Canvas;
 use POSIX qw(strftime);
 use Data::Dumper;    #get rid of this on rollout
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
@@ -1386,11 +1386,11 @@ Refer to the examples directory inside this distribution for working examples.
 =head1 SEE ALSO
 
 L<SVG::Parser> L<SVG::Manual> L<Expat> L<SAX> L<SVG::TT:Graph> L<Tramsform::Canvas>
-L<http://www.roitsystems.com> L<http://www.roasp.com>
+L<http://www.roitsystems.com> L<http://www.roitsystems.com>
 
 =head1 AUTHOR
 
-Ronan Oger, E<lt>ogerr@roasp.com<gt> L<http://www.roitsystems.com> L<http://www.roasp.com>
+Ronan Oger, E<lt>ronan.oger@roitsystems.com<gt> L<http://www.roitsystems.com> L<http://www.roitsystems.com>
 
 =head1 CREDITS
 

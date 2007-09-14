@@ -20,7 +20,7 @@ WriteMakefile(
           (
             ABSTRACT_FROM =>
               'lib/SVG/Template/Graph.pm',    # retrieve abstract from module
-            AUTHOR => 'Ronan Oger <ronan.oger@vectoreal.com>'
+            AUTHOR => 'Ronan Oger <ronan@cpan.org>'
 
           )
         : ()
