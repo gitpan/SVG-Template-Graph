@@ -1,5 +1,7 @@
 Revision history for Perl extension SVG::Template::Graph.
 
+0.13  Thurs Sept 20 2007 added Config::General to dependencies in Makefile.PL
+
 0.12  Thurs Sept 14 2007 fixed test support. Added missing files to manifest
 
 0.11  Wed Oct 19

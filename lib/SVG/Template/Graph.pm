@@ -10,7 +10,7 @@ use Transform::Canvas;
 use POSIX qw(strftime);
 use Data::Dumper;    #get rid of this on rollout
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
