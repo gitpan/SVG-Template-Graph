@@ -1,10 +1,11 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         SVG-Template-Graph
-version:      0.13
-version_from: lib/SVG/Template/Graph.pm
-installdirs:  site
-requires:
+--- #YAML:1.0
+name:                SVG-Template-Graph
+version:             0.14
+abstract:            Perl extension for generating template-driven graphs with SVG
+license:             ~
+generated_by:        ExtUtils::MakeMaker version 6.36
+distribution_type:   module
+requires:     
     Carp:                          0.01
     Config::General:               0
     Data::Dumper:                  2
@@ -12,6 +13,8 @@ requires:
     SVG:                           2.34
     SVG::Parser:                   1.01
     Transform::Canvas:             0.02
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2
+author:
+    - Ronan Oger <ronan@cpan.org>
