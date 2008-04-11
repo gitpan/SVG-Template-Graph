@@ -11,7 +11,6 @@ t/template2.svg
 t/02-titles.t  
 t/05-setparser.t        
 t/08-saxtest.t  
-t/out.svg
 t/03-lines.t   
 t/06-addmissinggroup.t  
 t/idmap.cfg     
@@ -40,3 +39,4 @@ examples/04-graph.pl
 examples/05-axes.pl
 lib/SVG/Template/Graph.pm
 META.yml                                 Module meta-data (added by MakeMaker)
+t/99_test_pod_coverage.t

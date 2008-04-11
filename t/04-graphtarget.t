@@ -5,6 +5,7 @@
 use Test::More tests => 14;
 use SVG::Template::Graph;
 #########################
+my $outfile = "/tmp/".rand(100000000).".svg";
 
 # defin a 1-trace drawing structure
 my $data = 
@@ -84,6 +85,7 @@ ok($out = $tt->burn(-elsep=>'',-indent=>''),'serialise');
 ok(1==1,'generated one line');
 ok($out =~ /Hello\ssvg\sgraphing\sworld/gs,'check that graph title showed up in output');
 ok($out =~ /rectangle\.graph\.data\.space/gs,'graph target shows up in output');
-#open OUT,"> /tmp/out.svg";
-#print OUT $out;
-#close OUT;
+open OUT,"> $outfile";
+print OUT $out;
+close OUT;
+unlink $outfile;

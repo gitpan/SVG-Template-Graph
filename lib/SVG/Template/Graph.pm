@@ -9,7 +9,7 @@ use Exporter;
 use Transform::Canvas;
 use POSIX qw(strftime);
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
@@ -114,6 +114,15 @@ Refer to the examples directory inside this distribution for working examples.
 
 $VERSION = eval $VERSION;    # see L<perlmodstyle>
 
+=head2 new()
+
+ #construct a new SVG::Template::Graph object with a file handle
+ my $tt = SVG::Template::Graph->new($file);
+
+The constructor for the class. Takes a template file name as an argument
+
+=cut
+
 sub new ($;$;@) {
     my ( $proto, $file, %attrs ) = @_;
     my $class = ref $proto || $proto;
@@ -132,6 +141,12 @@ sub new ($;$;@) {
     $self->{_IDMap_}   = {};
     return $self;
 }
+
+=head2 burn()
+
+serialise the image. See SVG::xmlify for more details
+
+=cut
 
 sub burn ($;@) {
 
@@ -619,7 +634,9 @@ sub lineGraph ($$$$@) {
 
 #draw the bar graph
 
-=head1 sub barGraph $index, [\@x,\@y], \@canvas, $barSpace, %styling_attributes
+=head2 barGraph()
+
+ $g->barGraph( $index, [\@x,\@y], \@canvas, $barSpace, %styling_attributes)
 
 draw a bar graph trace
 
@@ -684,7 +701,9 @@ sub barGraph ($$$$@) {
     }
 }
 
-=head2 drawGridLines ($target_svg_element_ref,$transformation_ref,$format_structure_ref)
+=head2 drawGridLines()
+
+ $p->drawGridLines ($target_svg_element_ref,$transformation_ref,$format_structure_ref)
 
 draw the gridlines for a graph as defined in the formatting data structure for each trace.
 
@@ -751,7 +770,10 @@ sub drawGridLines ($$$) {
     return 1;
 }
 
-=head2 handleFurnishings $orientation, $format, \%anchor_refs
+=head2 handleFurnishings()
+
+
+ $p->handleFurnishings( $orientation, $format, \%anchor_refs);
 
 single point for handling grid lines, gridline lables, and gridline tickmarks
 this method is a factory method for generating vertical or horizontal furnishings for the trace
@@ -776,6 +798,7 @@ defines what is shown and what is not.
 whose values are svg element object references where the respective entities are to be appended as children.
 
 =cut
+
 
 sub handleFurnishings ($$$$$) {
 
@@ -815,6 +838,12 @@ sub handleFurnishings ($$$$$) {
     return $i;
 }
 
+=head2 drawGridLine()
+
+draw a single grid line
+
+=cut
+
 sub drawGridLine ($$$$) {
     my $self = shift;
     my $o    = shift || 'x';
@@ -845,7 +874,9 @@ sub drawGridLine ($$$$) {
     );
 }
 
-=head2 drawTick ['x'|'y'], index, 
+=head2 drawTick()
+
+ $p->drawTick( ['x'|'y'], $index, $tick, $args, %attrs);
 
 tickmark-generation handler
 
@@ -896,6 +927,12 @@ sub drawTick ($$$$$;@) {
         $args->{anchor}->line( %hash, %attrs );
     }
 }
+
+=head2 drawGridLabel()
+
+grid lable generator 
+
+=cut
 
 sub drawGridLabel ($$$$) {
     my $self = shift;

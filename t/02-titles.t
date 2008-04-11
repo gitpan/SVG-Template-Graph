@@ -11,6 +11,7 @@ my $tt;
 my $svg;
 my $out;
 my $file = 't/template1.svg';
+my $outfile = "/tmp/".rand(1000000).".svg";
 ok(-r $file,'test template file exists'); 
 ok($tt = SVG::Template::Graph->new($file),'load SVG::Template::Graph object');
 	
@@ -25,6 +26,7 @@ ok($tt->setYAxisTitle(2,['I am Y-axis One','Subtitle - % of total length']),'set
 
 ok($out = $tt->burn(),'serialise');
 ok($out =~ /Hello\ssvg\sgraphing\sworld/gs,'check that graph title showed up in output');
-open OUT,"> /tmp/out.svg";
+open OUT,"> $outfile";
 print OUT $out;
 close OUT;
+unlink $outfile;
