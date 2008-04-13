@@ -7,7 +7,7 @@ WriteMakefile(
     NAME         => 'SVG::Template::Graph',
     VERSION_FROM => 'lib/SVG/Template/Graph.pm',    # finds $VERSION
     PREREQ_PM    => {
-        SVG::Parser       => 1.01,
+        SVG::Parser       => 1,
         SVG               => 2.34,
         Transform::Canvas => 0.02,
         POSIX 		  => 0.01,
@@ -19,10 +19,9 @@ WriteMakefile(
         $] >= 5.007
         ?    ## Add these new keywords supported since 5.005
           (
-            ABSTRACT_FROM =>
-              'lib/SVG/Template/Graph.pm',    # retrieve abstract from module
-            AUTHOR => 'Ronan Oger <ronan@cpan.org>'
-
+            ABSTRACT_FROM => 'lib/SVG/Template/Graph.pm',    # retrieve abstract from module
+            AUTHOR 	  => 'Ronan Oger <ronan@cpan.org>',
+	    LICENSE       => 'perl',
           )
         : ()
     ),

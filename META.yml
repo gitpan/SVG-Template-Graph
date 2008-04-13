@@ -1,8 +1,8 @@
 --- #YAML:1.0
 name:                SVG-Template-Graph
-version:             0.15
+version:             0.16
 abstract:            Perl extension for generating template-driven graphs with SVG
-license:             ~
+license:             perl
 author:              
     - Ronan Oger <ronan@cpan.org>
 generated_by:        ExtUtils::MakeMaker version 6.44
@@ -13,7 +13,7 @@ requires:
     Data::Dumper:                  2
     POSIX:                         0.01
     SVG:                           2.34
-    SVG::Parser:                   1.01
+    SVG::Parser:                   1
     Transform::Canvas:             0.02
 meta-spec:
     url:     http://module-build.sourceforge.net/META-spec-v1.3.html
