@@ -38,6 +38,7 @@ examples/03-graph.pl
 examples/04-graph.pl
 examples/05-axes.pl
 lib/SVG/Template/Graph.pm
-META.yml                                 Module meta-data (added by MakeMaker)
 t/99_test_pod_coverage.t
 LICENSE
+t/98_all_pod.t
+META.yml                                 Module meta-data (added by MakeMaker)
