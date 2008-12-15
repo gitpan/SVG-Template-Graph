@@ -2,7 +2,7 @@ Changes
 Makefile.PL
 MANIFEST
 README
-
+LICENSE
 t/01-load.t
 t/04-graphtarget.t      
 t/07-idmaps.t   
@@ -15,7 +15,8 @@ t/03-lines.t
 t/06-addmissinggroup.t  
 t/idmap.cfg     
 t/template1.svg
-
+t/98_all_pod.t
+t/99_test_pod_coverage.t
 examples/idmap.cfg
 examples/data/1.conf
 examples/data/2.conf
@@ -38,7 +39,4 @@ examples/03-graph.pl
 examples/04-graph.pl
 examples/05-axes.pl
 lib/SVG/Template/Graph.pm
-t/99_test_pod_coverage.t
-LICENSE
-t/98_all_pod.t
 META.yml                                 Module meta-data (added by MakeMaker)

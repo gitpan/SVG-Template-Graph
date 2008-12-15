@@ -9,7 +9,7 @@ use Exporter;
 use Transform::Canvas;
 use POSIX qw(strftime);
 
-our $VERSION = '0.17';
+our $VERSION = '1.0';
 
 use vars qw($VERSION @ISA );    #$AUTOLOAD);
 
